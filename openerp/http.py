@@ -1155,16 +1155,17 @@ class OpenERPSession(werkzeug.contrib.sessions.Session):
         return saved_actions.get("actions", {}).get(key)
 
 def session_gc(session_store):
-    if random.random() < 0.001:
-        # we keep session one week
-        last_week = time.time() - 60*60*24*7
-        for fname in os.listdir(session_store.path):
-            path = os.path.join(session_store.path, fname)
-            try:
-                if os.path.getmtime(path) < last_week:
-                    os.unlink(path)
-            except OSError:
-                pass
+    if session_store.path:
+        if random.random() < 0.001:
+            # we keep session one week
+            last_week = time.time() - 60*60*24*7
+            for fname in os.listdir(session_store.path):
+                path = os.path.join(session_store.path, fname)
+                try:
+                    if os.path.getmtime(path) < last_week:
+                        os.unlink(path)
+                except OSError:
+                    pass
 
 #----------------------------------------------------------
 # WSGI Layer
@@ -1264,13 +1265,13 @@ class RedisSessionStore(SessionStore):
                                  db=int(redis_conf['dbindex']), 
                                  password=redis_conf['pass'])
         self.path = None
-        self.expire = redis_conf['expire']
+        self.expire = int(redis_conf['expire'])
         self.key_prefix = redis_conf['key_prefix']
         
     def save(self, session):
         key = self._get_session_key(session.sid)
         data = cPickle.dumps(dict(session))
-        self.redis.setex(key, data, self.expire)
+        self.redis.setex(key, self.expire, data)
 
     def delete(self, session):
         key = self._get_session_key(session.sid)
@@ -1286,7 +1287,7 @@ class RedisSessionStore(SessionStore):
         key = self._get_session_key(sid)
         data = self.redis.get(key)
         if data:
-            self.redis.setex(key, data, self.expire)
+            self.redis.setex(key, self.expire, data)
             data = cPickle.loads(data)
         else:
             data = {}
