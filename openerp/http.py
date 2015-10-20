@@ -39,6 +39,7 @@ import werkzeug.wrappers
 import werkzeug.wsgi
 from werkzeug.wsgi import wrap_file
 from werkzeug.contrib.sessions import SessionStore
+from werkzeug.wrappers import BaseResponse
 
 try:
     import psutil
@@ -1442,44 +1443,52 @@ class Root(object):
         """
         try:
             httprequest = werkzeug.wrappers.Request(environ)
-            httprequest.app = self
 
-            explicit_session = self.setup_session(httprequest)
-            self.setup_db(httprequest)
-            self.setup_lang(httprequest)
+            # HEAD requests are LB checks, do not create a new session
+            if httprequest.method != 'HEAD':
 
-            request = self.get_request(httprequest)
+                httprequest.app = self
 
-            def _dispatch_nodb():
-                try:
-                    func, arguments = self.nodb_routing_map.bind_to_environ(request.httprequest.environ).match()
-                except werkzeug.exceptions.HTTPException, e:
-                    return request._handle_exception(e)
-                request.set_handler(func, arguments, "none")
-                result = request.dispatch()
-                return result
+                explicit_session = self.setup_session(httprequest)
+                self.setup_db(httprequest)
+                self.setup_lang(httprequest)
 
-            with request:
-                db = request.session.db
-                if db:
-                    openerp.modules.registry.RegistryManager.check_registry_signaling(db)
+                request = self.get_request(httprequest)
+
+                def _dispatch_nodb():
                     try:
-                        with openerp.tools.mute_logger('openerp.sql_db'):
-                            ir_http = request.registry['ir.http']
-                    except (AttributeError, psycopg2.OperationalError):
-                        # psycopg2 error or attribute error while constructing
-                        # the registry. That means the database probably does
-                        # not exists anymore or the code doesnt match the db.
-                        # Log the user out and fall back to nodb
-                        request.session.logout()
-                        result = _dispatch_nodb()
-                    else:
-                        result = ir_http._dispatch()
-                        openerp.modules.registry.RegistryManager.signal_caches_change(db)
-                else:
-                    result = _dispatch_nodb()
+                        func, arguments = self.nodb_routing_map.bind_to_environ(request.httprequest.environ).match()
+                    except werkzeug.exceptions.HTTPException, e:
+                        return request._handle_exception(e)
+                    request.set_handler(func, arguments, "none")
+                    result = request.dispatch()
+                    return result
 
-                response = self.get_response(httprequest, result, explicit_session)
+                with request:
+                    db = request.session.db
+                    if db:
+                        openerp.modules.registry.RegistryManager.check_registry_signaling(db)
+                        try:
+                            with openerp.tools.mute_logger('openerp.sql_db'):
+                                ir_http = request.registry['ir.http']
+                        except (AttributeError, psycopg2.OperationalError):
+                            # psycopg2 error or attribute error while constructing
+                            # the registry. That means the database probably does
+                            # not exists anymore or the code doesnt match the db.
+                            # Log the user out and fall back to nodb
+                            request.session.logout()
+                            result = _dispatch_nodb()
+                        else:
+                            result = ir_http._dispatch()
+                            openerp.modules.registry.RegistryManager.signal_caches_change(db)
+                    else:
+                        result = _dispatch_nodb()
+
+                    response = self.get_response(httprequest, result, explicit_session)
+            else:
+                # Its a HEAD request, return plain response
+                response = BaseResponse("I'm alive!", status=200)
+
             return response(environ, start_response)
 
         except werkzeug.exceptions.HTTPException, e:
