@@ -24,6 +24,7 @@ import traceback
 import urlparse
 import warnings
 from zlib import adler32
+import redis
 
 import babel.core
 import psycopg2
@@ -43,7 +44,7 @@ except ImportError:
     psutil = None
 
 import openerp
-from openerp import SUPERUSER_ID
+from openerp import SUPERUSER_ID, exceptions
 from openerp.service import security, model as service_model
 from openerp.tools.func import lazy_property
 from openerp.tools import ustr
@@ -1253,6 +1254,43 @@ class DisableCacheMiddleware(object):
             start_response(status, new_headers)
         return self.app(environ, start_wrapped)
 
+class RedisSessionStore(SessionStore):
+    def __init__(self, redis_conf):
+        SessionStore.__init__(self)
+        self.redis = redis.StrictRedis(host=redis_conf['host'], 
+                                 port=int(redis_conf['port']), 
+                                 db=int(redis_conf['dbindex']), 
+                                 password=redis_conf['pass'])
+        self.path = session_path()
+        self.expire = redis_conf['expire']
+        self.key_prefix = redis_conf['key_prefix']
+        
+    def save(self, session):
+        key = self._get_session_key(session.sid)
+        data = cPickle.dumps(dict(session))
+        self.redis.setex(key, data, self.expire)
+
+    def delete(self, session):
+        key = self._get_session_key(session.sid)
+        self.redis.delete(key)
+    
+    def _get_session_key(self,sid):
+        key = self.key_prefix + sid
+        if isinstance(key, unicode):
+          key = key.encode('utf-8')
+        return key
+    
+    def get(self, sid):
+        key = self._get_session_key(sid)
+        data = self.redis.get(key)
+        if data:
+            self.redis.setex(key, data, self.expire)
+            data = cPickle.loads(data)
+        else:
+            data = {}
+        return self.session_class(data, sid, False)
+
+
 class Root(object):
     """Root WSGI application for the OpenERP Web Client.
     """
@@ -1262,9 +1300,24 @@ class Root(object):
     @lazy_property
     def session_store(self):
         # Setup http sessions
-        path = openerp.tools.config.session_dir
-        _logger.debug('HTTP sessions stored in: %s', path)
-        return werkzeug.contrib.sessions.FilesystemSessionStore(path, session_class=OpenERPSession)
+        # First check whether a redis-sessions are enabled
+        if 'redis_sessions' in openerp.tools.config.options and openerp.tools.config['redis_sessions']:
+            redis_conf = {}
+            redis_conf['host'] = openerp.tools.config['redis_host']
+            redis_conf['port'] = openerp.tools.config['redis_port']
+            redis_conf['dbindex'] = openerp.tools.config['redis_dbindex']
+            redis_conf['pass'] = openerp.tools.config['redis_pass']
+            redis_conf['key_prefix'] = openerp.tools.config['redis_key_prefix']
+            redis_conf['expire'] = openerp.tools.config['redis_sessions_expire']
+            _logger.debug('HTTP sessions stored in Redis')
+            session_store = RedisSessionStore(redis_conf, session_class=OpenERPSession)
+        else:
+            # Fallback to filesystem session store
+            path = openerp.tools.config.session_dir
+            _logger.debug('HTTP sessions stored in: %s', path)
+            session_store = werkzeug.contrib.sessions.FilesystemSessionStore(path, session_class=OpenERPSession)
+
+        return session_store
 
     @lazy_property
     def nodb_routing_map(self):

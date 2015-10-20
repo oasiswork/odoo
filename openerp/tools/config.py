@@ -304,6 +304,20 @@ class configmanager(object):
                          help="Use the unaccent function provided by the database when available.")
         group.add_option("--geoip-db", dest="geoip_database", my_default='/usr/share/GeoIP/GeoLiteCity.dat',
                          help="Absolute path to the GeoIP database file.")
+        group.add_option("--redis-sessions", dest="redis_sessions", my_default=False,
+                         help="Store sessions in Redis")
+        group.add_option("--redis-host", dest="redis_host", my_default='localhost',
+                         help="Redis sessions store Host")
+        group.add_option("--redis-port", dest="redis_port", my_default=6379,
+                         help="Redis sessions store Port")
+        group.add_option("--redis-dbindex", dest="redis_dbindex", my_default=1,
+                         help="Redis sessions store DB Index")
+        group.add_option("--redis-pass", dest="redis_pass", my_default=None,
+                         help="Redis sessions store Pass")
+        group.add_option("--redis-sessions-expire", dest="redis_sessions_expire", my_default=1800,
+                         help="Redis sessions store Expire (in seconds)")
+        group.add_option("--redis-key-prefix", dest="redis_key_prefix", my_default='',
+                         help="Redis sessions store Key Prefix")
         parser.add_option_group(group)
 
         if os.name == 'posix':
