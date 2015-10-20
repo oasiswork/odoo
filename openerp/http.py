@@ -25,6 +25,7 @@ import urlparse
 import warnings
 from zlib import adler32
 import redis
+import cPickle
 
 import babel.core
 import psycopg2
@@ -37,6 +38,7 @@ import werkzeug.routing
 import werkzeug.wrappers
 import werkzeug.wsgi
 from werkzeug.wsgi import wrap_file
+from werkzeug.contrib.sessions import SessionStore
 
 try:
     import psutil
@@ -1255,13 +1257,13 @@ class DisableCacheMiddleware(object):
         return self.app(environ, start_wrapped)
 
 class RedisSessionStore(SessionStore):
-    def __init__(self, redis_conf):
-        SessionStore.__init__(self)
+    def __init__(self, redis_conf, session_class=None):
+        SessionStore.__init__(self, session_class)
         self.redis = redis.StrictRedis(host=redis_conf['host'], 
                                  port=int(redis_conf['port']), 
                                  db=int(redis_conf['dbindex']), 
                                  password=redis_conf['pass'])
-        self.path = session_path()
+        self.path = None
         self.expire = redis_conf['expire']
         self.key_prefix = redis_conf['key_prefix']
         
