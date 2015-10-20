@@ -210,6 +210,7 @@ def application_unproxied(environ, start_response):
     return [response]
 
 def application(environ, start_response):
+    if 'HTTP_X_FORWARDED_FOR' in environ: werkzeug.serving.WSGIRequestHandler.address_string = lambda self: self.headers.get('x-forwarded-for', self.client_address[0])
     if config['proxy_mode'] and 'HTTP_X_FORWARDED_HOST' in environ:
         return werkzeug.contrib.fixers.ProxyFix(application_unproxied)(environ, start_response)
     else:
