@@ -2859,12 +2859,12 @@ msgstr "Logiciel"
 #: model:ir.model,name:crm.model_crm_tracking_source
 #: model:ir.ui.menu,name:crm.menu_crm_tracking_source
 msgid "Source"
-msgstr ""
+msgstr "Sources"
 
 #. module: crm
 #: field:crm.tracking.source,name:0
 msgid "Source Name"
-msgstr ""
+msgstr "Nom de la source"
 
 #. module: crm
 #: view:crm.case.stage:crm.crm_case_stage_form
@@ -2901,7 +2901,7 @@ msgstr "Étape changée"
 #. module: crm
 #: model:ir.model,name:crm.model_crm_case_stage
 msgid "Stage of case"
-msgstr "Etape de cas"
+msgstr "Etape de la piste"
 
 #. module: crm
 #: view:crm.case.section:crm.sales_team_form_view_in_crm

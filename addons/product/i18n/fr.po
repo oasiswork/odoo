@@ -20,7 +20,7 @@ msgstr ""
 #. module: product
 #: field:product.template,product_variant_count:0
 msgid "# of Product Variants"
-msgstr ""
+msgstr "Nombre de variantes d'article"
 
 #. module: product
 #: code:addons/product/product.py:757
@@ -2775,7 +2775,7 @@ msgstr "Variante d'article"
 #: model:ir.ui.menu,name:product.menu_products
 #: view:product.product:product.product_product_tree_view
 msgid "Product Variants"
-msgstr ""
+msgstr "Variantes d'articles"
 
 #. module: product
 #: model:ir.model,name:product.model_product_uom_categ
